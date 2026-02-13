@@ -1,0 +1,53 @@
+name: Extract Apps from Gofile
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download-and-extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Get Direct Download Link and Download
+        run: |
+          # معرف المجلد من الرابط الذي أرسلته
+          CONTENT_ID="OskDjd"
+          
+          echo "جاري الحصول على توكن التحميل..."
+          TOKEN=$(curl -s https://api.gofile.io/createAccount | jq -r '.data.token')
+          
+          echo "جاري جلب بيانات الملف..."
+          # جلب رابط السيرفر والملف
+          FILE_DATA=$(curl -s -H "Authorization: Bearer $TOKEN" "https://api.gofile.io/contents/$CONTENT_ID" | jq -r '.data.children[] | select(.name == "Appsui9.zip")')
+          DIRECT_LINK=$(echo $FILE_DATA | jq -r '.link')
+          
+          if [ "$DIRECT_LINK" == "null" ]; then
+            echo "خطأ: لم يتم العثور على ملف Appsui9.zip في هذا الرابط!"
+            exit 1
+          fi
+          
+          echo "جاري التحميل من: $DIRECT_LINK"
+          curl -L -H "Cookie: accountToken=$TOKEN" -o Appsui9.zip "$DIRECT_LINK"
+
+      - name: Verify MD5
+        run: |
+          echo "f1483d36b451a35737b5f07f5f620d0c  Appsui9.zip" | md5sum -c -
+
+      - name: Extract Specific Folders
+        run: |
+          echo "استخراج Apps و priv-app فقط..."
+          # استخراج المجلدات المطلوبة فقط
+          unzip -q Appsui9.zip "*Apps/*" "*priv-app/*" -d ./
+          rm Appsui9.zip
+
+      - name: Push Changes
+        run: |
+          git config --local user.email "Were.aksle@gmail.com"
+          git config --local user.name "Link2mem"
+          git add .
+          git commit -m "Extract Apps and priv-app folders"
+          git push
+
